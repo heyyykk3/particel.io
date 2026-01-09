@@ -105,7 +105,7 @@ function matchPreset(prompt: string): any {
   };
 }
 
-function handleToolCall(name: string, args: any): any {
+function handleToolCall(name: string, args: any, baseUrl: string): any {
   switch (name) {
     case 'create_particles': {
       const config = matchPreset(args.prompt);
@@ -126,10 +126,21 @@ function handleToolCall(name: string, args: any): any {
       config.prompt = args.prompt;
       config.mood = mood;
       
+      // Generate inline widget HTML with data embedded
+      const widgetWithData = generateWidgetHtml(config);
+      
       return {
-        content: [{ type: 'text', text: `✨ Created "${config.name}" for: "${args.prompt}"` }],
-        structuredContent: config,
-        _meta: { 'openai/outputTemplate': 'ui://widget/particles.html' },
+        content: [
+          { type: 'text', text: `✨ Created "${config.name}" for: "${args.prompt}"` },
+          { 
+            type: 'resource',
+            resource: {
+              uri: `ui://widget/particles-${Date.now()}.html`,
+              mimeType: 'text/html+skybridge',
+              text: widgetWithData
+            }
+          }
+        ],
       };
     }
     
@@ -141,17 +152,174 @@ function handleToolCall(name: string, args: any): any {
     }
     
     case 'quick_preset': {
-      const config = presets[args.preset] || presets.starryNight;
+      const config = { ...presets[args.preset] || presets.starryNight, prompt: args.preset };
+      const widgetWithData = generateWidgetHtml(config);
+      
       return {
-        content: [{ type: 'text', text: `✨ Showing ${config.name}` }],
-        structuredContent: { ...config, prompt: config.name },
-        _meta: { 'openai/outputTemplate': 'ui://widget/particles.html' },
+        content: [
+          { type: 'text', text: `✨ Showing ${config.name}` },
+          {
+            type: 'resource',
+            resource: {
+              uri: `ui://widget/particles-${Date.now()}.html`,
+              mimeType: 'text/html+skybridge',
+              text: widgetWithData
+            }
+          }
+        ],
       };
     }
     
     default:
       return { content: [{ type: 'text', text: 'Unknown tool' }], isError: true };
   }
+}
+
+function generateWidgetHtml(config: any): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow: hidden; width: 100%; height: 400px; background: ${config.background}; }
+    canvas { display: block; width: 100%; height: 100%; }
+    .info { position: absolute; bottom: 16px; left: 16px; color: rgba(255,255,255,0.9); font-size: 14px; text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+    .title { font-size: 16px; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div class="info"><div class="title">${config.name}</div></div>
+  <script>
+    (function(){
+      const cfg = ${JSON.stringify(config)};
+      const canvas = document.getElementById('c');
+      const ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = 400;
+      
+      const particles = [];
+      for(let i = 0; i < cfg.particles.count; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          size: cfg.particles.size[0] + Math.random() * (cfg.particles.size[1] - cfg.particles.size[0]),
+          speedX: (Math.random() - 0.5) * cfg.particles.speed,
+          speedY: (Math.random() - 0.5) * cfg.particles.speed,
+          opacity: 0.3 + Math.random() * 0.7,
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+      
+      function getColor(p) {
+        if(cfg.particles.color === 'rainbow') {
+          return 'hsl(' + ((Date.now()/50 + p.phase*100) % 360) + ',80%,60%)';
+        }
+        if(cfg.particles.color === 'multi') {
+          const colors = ['#ff6b6b','#4ecdc4','#45b7d1','#96ceb4','#ffeaa7'];
+          return colors[Math.floor(p.phase * colors.length) % colors.length];
+        }
+        return cfg.particles.color;
+      }
+      
+      function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        particles.forEach(p => {
+          const type = cfg.particles.type;
+          
+          if(type === 'star') {
+            p.x += p.speedX * 0.1;
+            p.y += p.speedY * 0.1;
+            if(cfg.particles.twinkle) p.opacity = 0.3 + Math.abs(Math.sin(Date.now()/1000 + p.phase)) * 0.7;
+          } else if(type === 'snow') {
+            p.x += Math.sin(Date.now()/2000 + p.phase) * 0.5;
+            p.y += cfg.particles.speed * 0.5;
+            if(p.y > canvas.height) { p.y = -p.size; p.x = Math.random() * canvas.width; }
+          } else if(type === 'rain') {
+            p.y += cfg.particles.speed;
+            if(p.y > canvas.height) { p.y = -p.size; p.x = Math.random() * canvas.width; }
+          } else if(type === 'bubble') {
+            p.x += Math.sin(Date.now()/1500 + p.phase) * 0.5;
+            p.y -= cfg.particles.speed * 0.3;
+            if(p.y < -p.size) { p.y = canvas.height + p.size; p.x = Math.random() * canvas.width; }
+          } else if(type === 'petal') {
+            p.x += Math.sin(Date.now()/1000 + p.phase);
+            p.y += cfg.particles.speed;
+            if(p.y > canvas.height) { p.y = -p.size; p.x = Math.random() * canvas.width; }
+          } else if(type === 'glow') {
+            p.x += Math.sin(Date.now()/2000 + p.phase) * 0.5;
+            p.y += Math.cos(Date.now()/2000 + p.phase) * 0.5;
+            if(cfg.particles.pulse) p.opacity = 0.2 + Math.abs(Math.sin(Date.now()/500 + p.phase)) * 0.8;
+          } else if(type === 'wave') {
+            p.x += cfg.particles.speed;
+            p.y += Math.sin(Date.now()/1000 + p.phase) * 0.5;
+            if(p.x > canvas.width) p.x = -p.size;
+          } else if(type === 'aurora') {
+            p.x += Math.sin(Date.now()/3000 + p.phase) * 2;
+            p.y += Math.cos(Date.now()/4000 + p.phase) * 0.5;
+            p.opacity = 0.3 + Math.abs(Math.sin(Date.now()/2000 + p.phase)) * 0.5;
+          } else if(type === 'galaxy') {
+            const cx = canvas.width/2, cy = canvas.height/2;
+            const angle = Math.atan2(p.y - cy, p.x - cx) + cfg.particles.speed * 0.01;
+            const dist = Math.sqrt((p.x-cx)**2 + (p.y-cy)**2);
+            p.x = cx + Math.cos(angle) * dist;
+            p.y = cy + Math.sin(angle) * dist;
+          } else {
+            p.x += p.speedX;
+            p.y += p.speedY;
+          }
+          
+          // Wrap
+          if(p.x < -p.size) p.x = canvas.width + p.size;
+          if(p.x > canvas.width + p.size) p.x = -p.size;
+          if(type !== 'snow' && type !== 'rain' && type !== 'bubble' && type !== 'petal') {
+            if(p.y < -p.size) p.y = canvas.height + p.size;
+            if(p.y > canvas.height + p.size) p.y = -p.size;
+          }
+          
+          // Draw
+          ctx.globalAlpha = p.opacity;
+          const color = getColor(p);
+          
+          if(type === 'rain') {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x, p.y + p.size * 3);
+            ctx.strokeStyle = color;
+            ctx.stroke();
+          } else if(type === 'bubble') {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.strokeStyle = color;
+            ctx.stroke();
+          } else if(type === 'glow' || type === 'aurora') {
+            const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 3);
+            g.addColorStop(0, color);
+            g.addColorStop(1, 'transparent');
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size * 3, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            if(type === 'star') { ctx.shadowColor = color; ctx.shadowBlur = p.size * 2; }
+            ctx.fill();
+            ctx.shadowBlur = 0;
+          }
+        });
+        
+        requestAnimationFrame(animate);
+      }
+      animate();
+    })();
+  </script>
+</body>
+</html>`;
 }
 
 // Widget HTML (embedded for serverless)
@@ -220,7 +388,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
 
       case 'tools/call':
-        const result = handleToolCall(body.params.name, body.params.arguments || {});
+        const result = handleToolCall(body.params.name, body.params.arguments || {}, '');
         return res.json({
           jsonrpc: '2.0',
           id: body.id,
