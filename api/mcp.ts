@@ -250,7 +250,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           name: 'Particle Animation Widget',
           mimeType: 'text/html+skybridge',
           _meta: {
-            'openai/widgetDescription': 'Soothing particle animation'
+            'openai/widgetDescription': 'Soothing particle animation',
+            'openai/widgetDomain': 'particel-io-vdbc.vercel.app',
+            'openai/widgetCSP': {
+              connect_domains: [],
+              resource_domains: []
+            },
+            'openai/widgetPrefersBorder': true
           }
         }]
       } 
@@ -265,7 +271,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         contents: [{
           uri: WIDGET_URI,
           mimeType: 'text/html+skybridge',
-          text: widgetHtml
+          text: widgetHtml,
+          _meta: {
+            'openai/widgetDescription': 'Soothing particle animation',
+            'openai/widgetDomain': 'particel-io-vdbc.vercel.app',
+            'openai/widgetCSP': {
+              connect_domains: [],
+              resource_domains: []
+            },
+            'openai/widgetPrefersBorder': true
+          }
         }]
       } 
     });
