@@ -37,22 +37,146 @@ function matchPreset(prompt: string): any {
 }
 
 function genWidget(cfg: any): string {
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;width:100%;height:400px;background:${cfg.background}}canvas{width:100%;height:100%}.i{position:absolute;bottom:16px;left:16px;color:rgba(255,255,255,.9);font:600 16px system-ui;text-shadow:0 1px 3px rgba(0,0,0,.5)}</style></head><body><canvas id="c"></canvas><div class="i">${cfg.name}</div><script>!function(){const c=${JSON.stringify(cfg)},v=document.getElementById("c"),x=v.getContext("2d");v.width=innerWidth;v.height=400;const p=[];for(let i=0;i<c.particles.count;i++)p.push({x:Math.random()*v.width,y:Math.random()*v.height,s:c.particles.size[0]+Math.random()*(c.particles.size[1]-c.particles.size[0]),vx:(Math.random()-.5)*c.particles.speed,vy:(Math.random()-.5)*c.particles.speed,o:.3+Math.random()*.7,ph:Math.random()*Math.PI*2});function col(p){if(c.particles.color==="rainbow")return"hsl("+((Date.now()/50+p.ph*100)%360)+",80%,60%)";if(c.particles.color==="multi"){const cs=["#ff6b6b","#4ecdc4","#45b7d1","#96ceb4","#ffeaa7"];return cs[Math.floor(p.ph*cs.length)%cs.length]}return c.particles.color}function draw(){x.clearRect(0,0,v.width,v.height);p.forEach(p=>{const t=c.particles.type;if(t==="star"){p.x+=p.vx*.1;p.y+=p.vy*.1;if(c.particles.twinkle)p.o=.3+Math.abs(Math.sin(Date.now()/1000+p.ph))*.7}else if(t==="snow"){p.x+=Math.sin(Date.now()/2000+p.ph)*.5;p.y+=c.particles.speed*.5;if(p.y>v.height){p.y=-p.s;p.x=Math.random()*v.width}}else if(t==="rain"){p.y+=c.particles.speed;if(p.y>v.height){p.y=-p.s;p.x=Math.random()*v.width}}else if(t==="bubble"){p.x+=Math.sin(Date.now()/1500+p.ph)*.5;p.y-=c.particles.speed*.3;if(p.y<-p.s){p.y=v.height+p.s;p.x=Math.random()*v.width}}else if(t==="petal"){p.x+=Math.sin(Date.now()/1000+p.ph);p.y+=c.particles.speed;if(p.y>v.height){p.y=-p.s;p.x=Math.random()*v.width}}else if(t==="glow"){p.x+=Math.sin(Date.now()/2000+p.ph)*.5;p.y+=Math.cos(Date.now()/2000+p.ph)*.5;if(c.particles.pulse)p.o=.2+Math.abs(Math.sin(Date.now()/500+p.ph))*.8}else if(t==="wave"){p.x+=c.particles.speed;p.y+=Math.sin(Date.now()/1000+p.ph)*.5;if(p.x>v.width)p.x=-p.s}else if(t==="aurora"){p.x+=Math.sin(Date.now()/3000+p.ph)*2;p.y+=Math.cos(Date.now()/4000+p.ph)*.5;p.o=.3+Math.abs(Math.sin(Date.now()/2000+p.ph))*.5}else if(t==="galaxy"){const cx=v.width/2,cy=v.height/2,a=Math.atan2(p.y-cy,p.x-cx)+c.particles.speed*.01,d=Math.sqrt((p.x-cx)**2+(p.y-cy)**2);p.x=cx+Math.cos(a)*d;p.y=cy+Math.sin(a)*d}else if(t==="fire"){p.y-=c.particles.speed*(.5+Math.random()*.5);p.x+=Math.sin(Date.now()/500+p.ph)*.5;p.o-=.01;if(p.o<=0||p.y<0){p.y=v.height;p.x=v.width/2+(Math.random()-.5)*100;p.o=.8}}else{p.x+=p.vx;p.y+=p.vy}if(p.x<-p.s)p.x=v.width+p.s;if(p.x>v.width+p.s)p.x=-p.s;if(t!=="snow"&&t!=="rain"&&t!=="bubble"&&t!=="petal"&&t!=="fire"){if(p.y<-p.s)p.y=v.height+p.s;if(p.y>v.height+p.s)p.y=-p.s}x.globalAlpha=p.o;const cl=col(p);if(t==="rain"){x.beginPath();x.moveTo(p.x,p.y);x.lineTo(p.x,p.y+p.s*3);x.strokeStyle=cl;x.stroke()}else if(t==="bubble"){x.beginPath();x.arc(p.x,p.y,p.s,0,Math.PI*2);x.strokeStyle=cl;x.stroke()}else if(t==="glow"||t==="aurora"||t==="fire"){const g=x.createRadialGradient(p.x,p.y,0,p.x,p.y,p.s*3);g.addColorStop(0,cl);g.addColorStop(1,"transparent");x.fillStyle=g;x.beginPath();x.arc(p.x,p.y,p.s*3,0,Math.PI*2);x.fill()}else{x.beginPath();x.arc(p.x,p.y,p.s,0,Math.PI*2);x.fillStyle=cl;if(t==="star"){x.shadowColor=cl;x.shadowBlur=p.s*2}x.fill();x.shadowBlur=0}});requestAnimationFrame(draw)}draw()}();</script></body></html>`;
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden}
+body{background:${cfg.background};font-family:system-ui,sans-serif}
+canvas{display:block;width:100%;height:100%}
+.info{position:absolute;bottom:16px;left:16px;color:rgba(255,255,255,.9);font-size:16px;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="info">${cfg.name}</div>
+<script>
+(function(){
+var cfg=${JSON.stringify(cfg)};
+var canvas=document.getElementById('c');
+var ctx=canvas.getContext('2d');
+function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight}
+window.addEventListener('resize',resize);
+resize();
+
+// Notify parent of size
+if(window.parent!==window){
+  window.parent.postMessage({type:'ui-size-change',payload:{height:400}},'*');
+}
+
+var particles=[];
+for(var i=0;i<cfg.particles.count;i++){
+  particles.push({
+    x:Math.random()*canvas.width,
+    y:Math.random()*canvas.height,
+    s:cfg.particles.size[0]+Math.random()*(cfg.particles.size[1]-cfg.particles.size[0]),
+    vx:(Math.random()-0.5)*cfg.particles.speed,
+    vy:(Math.random()-0.5)*cfg.particles.speed,
+    o:0.3+Math.random()*0.7,
+    ph:Math.random()*Math.PI*2
+  });
+}
+
+function getColor(p){
+  if(cfg.particles.color==='rainbow')return'hsl('+((Date.now()/50+p.ph*100)%360)+',80%,60%)';
+  if(cfg.particles.color==='multi'){var cs=['#ff6b6b','#4ecdc4','#45b7d1','#96ceb4','#ffeaa7'];return cs[Math.floor(p.ph*cs.length)%cs.length]}
+  return cfg.particles.color;
+}
+
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for(var i=0;i<particles.length;i++){
+    var p=particles[i];
+    var t=cfg.particles.type;
+    
+    if(t==='star'){p.x+=p.vx*0.1;p.y+=p.vy*0.1;if(cfg.particles.twinkle)p.o=0.3+Math.abs(Math.sin(Date.now()/1000+p.ph))*0.7}
+    else if(t==='snow'){p.x+=Math.sin(Date.now()/2000+p.ph)*0.5;p.y+=cfg.particles.speed*0.5;if(p.y>canvas.height){p.y=-p.s;p.x=Math.random()*canvas.width}}
+    else if(t==='rain'){p.y+=cfg.particles.speed;if(p.y>canvas.height){p.y=-p.s;p.x=Math.random()*canvas.width}}
+    else if(t==='bubble'){p.x+=Math.sin(Date.now()/1500+p.ph)*0.5;p.y-=cfg.particles.speed*0.3;if(p.y<-p.s){p.y=canvas.height+p.s;p.x=Math.random()*canvas.width}}
+    else if(t==='petal'){p.x+=Math.sin(Date.now()/1000+p.ph);p.y+=cfg.particles.speed;if(p.y>canvas.height){p.y=-p.s;p.x=Math.random()*canvas.width}}
+    else if(t==='glow'){p.x+=Math.sin(Date.now()/2000+p.ph)*0.5;p.y+=Math.cos(Date.now()/2000+p.ph)*0.5;if(cfg.particles.pulse)p.o=0.2+Math.abs(Math.sin(Date.now()/500+p.ph))*0.8}
+    else if(t==='wave'){p.x+=cfg.particles.speed;p.y+=Math.sin(Date.now()/1000+p.ph)*0.5;if(p.x>canvas.width)p.x=-p.s}
+    else if(t==='aurora'){p.x+=Math.sin(Date.now()/3000+p.ph)*2;p.y+=Math.cos(Date.now()/4000+p.ph)*0.5;p.o=0.3+Math.abs(Math.sin(Date.now()/2000+p.ph))*0.5}
+    else if(t==='galaxy'){var cx=canvas.width/2,cy=canvas.height/2,a=Math.atan2(p.y-cy,p.x-cx)+cfg.particles.speed*0.01,d=Math.sqrt((p.x-cx)*(p.x-cx)+(p.y-cy)*(p.y-cy));p.x=cx+Math.cos(a)*d;p.y=cy+Math.sin(a)*d}
+    else if(t==='fire'){p.y-=cfg.particles.speed*(0.5+Math.random()*0.5);p.x+=Math.sin(Date.now()/500+p.ph)*0.5;p.o-=0.01;if(p.o<=0||p.y<0){p.y=canvas.height;p.x=canvas.width/2+(Math.random()-0.5)*100;p.o=0.8}}
+    else{p.x+=p.vx;p.y+=p.vy}
+    
+    if(p.x<-p.s)p.x=canvas.width+p.s;
+    if(p.x>canvas.width+p.s)p.x=-p.s;
+    if(t!=='snow'&&t!=='rain'&&t!=='bubble'&&t!=='petal'&&t!=='fire'){
+      if(p.y<-p.s)p.y=canvas.height+p.s;
+      if(p.y>canvas.height+p.s)p.y=-p.s;
+    }
+    
+    ctx.globalAlpha=p.o;
+    var color=getColor(p);
+    
+    if(t==='rain'){ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x,p.y+p.s*3);ctx.strokeStyle=color;ctx.stroke()}
+    else if(t==='bubble'){ctx.beginPath();ctx.arc(p.x,p.y,p.s,0,Math.PI*2);ctx.strokeStyle=color;ctx.stroke()}
+    else if(t==='glow'||t==='aurora'||t==='fire'){var g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.s*3);g.addColorStop(0,color);g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,p.s*3,0,Math.PI*2);ctx.fill()}
+    else{ctx.beginPath();ctx.arc(p.x,p.y,p.s,0,Math.PI*2);ctx.fillStyle=color;if(t==='star'){ctx.shadowColor=color;ctx.shadowBlur=p.s*2}ctx.fill();ctx.shadowBlur=0}
+  }
+  requestAnimationFrame(draw);
+}
+draw();
+})();
+</script>
+</body>
+</html>`;
 }
 
 function handleTool(name: string, args: any): any {
   if (name === 'create_particles') {
     const cfg = matchPreset(args.prompt);
     cfg.prompt = args.prompt;
-    return { content: [{ type: 'text', text: `✨ ${cfg.name} created` }, { type: 'resource', resource: { uri: 'ui://particle-widget', mimeType: 'text/html+skybridge', text: genWidget(cfg) } }], structuredContent: cfg };
+    const html = genWidget(cfg);
+    
+    return {
+      content: [
+        { type: 'text', text: `✨ ${cfg.name} created!` },
+        { 
+          type: 'resource',
+          resource: {
+            uri: 'ui://particle-widget',
+            mimeType: 'text/html',
+            text: html
+          }
+        }
+      ]
+    };
   }
+  
   if (name === 'list_presets') {
-    return { content: [{ type: 'text', text: `✨ Presets:\n${Object.values(presets).map((v: any) => `• ${v.name}`).join('\n')}` }] };
+    return { 
+      content: [{ 
+        type: 'text', 
+        text: `✨ Available Presets:\n\n${Object.values(presets).map((v: any) => `• ${v.name}`).join('\n')}\n\nSay "show me [name]" to see it!` 
+      }] 
+    };
   }
+  
   if (name === 'quick_preset') {
     const cfg = { ...presets[args.preset] || presets.starryNight };
-    return { content: [{ type: 'text', text: `✨ ${cfg.name}` }, { type: 'resource', resource: { uri: 'ui://particle-widget', mimeType: 'text/html+skybridge', text: genWidget(cfg) } }], structuredContent: cfg };
+    const html = genWidget(cfg);
+    
+    return {
+      content: [
+        { type: 'text', text: `✨ ${cfg.name}` },
+        {
+          type: 'resource',
+          resource: {
+            uri: 'ui://particle-widget',
+            mimeType: 'text/html',
+            text: html
+          }
+        }
+      ]
+    };
   }
+  
   return { content: [{ type: 'text', text: 'Unknown tool' }], isError: true };
 }
 
@@ -65,11 +189,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { method, id, params } = req.body;
   
-  if (method === 'initialize') return res.json({ jsonrpc: '2.0', id, result: { protocolVersion: '2024-11-05', capabilities: { tools: {}, resources: {} }, serverInfo: { name: 'particle-presentations', version: '1.0.0' } } });
-  if (method === 'tools/list') return res.json({ jsonrpc: '2.0', id, result: { tools } });
-  if (method === 'tools/call') return res.json({ jsonrpc: '2.0', id, result: handleTool(params.name, params.arguments || {}) });
-  if (method === 'resources/list') return res.json({ jsonrpc: '2.0', id, result: { resources: [{ uri: 'ui://particle-widget', name: 'Particle Widget', mimeType: 'text/html+skybridge' }] } });
-  if (method === 'resources/read') return res.json({ jsonrpc: '2.0', id, result: { contents: [{ uri: 'ui://particle-widget', mimeType: 'text/html+skybridge', text: genWidget(presets.starryNight) }] } });
+  if (method === 'initialize') {
+    return res.json({ 
+      jsonrpc: '2.0', 
+      id, 
+      result: { 
+        protocolVersion: '2024-11-05', 
+        capabilities: { tools: {}, resources: {} }, 
+        serverInfo: { name: 'particle-presentations', version: '1.0.0' } 
+      } 
+    });
+  }
+  
+  if (method === 'tools/list') {
+    return res.json({ jsonrpc: '2.0', id, result: { tools } });
+  }
+  
+  if (method === 'tools/call') {
+    return res.json({ jsonrpc: '2.0', id, result: handleTool(params.name, params.arguments || {}) });
+  }
+  
+  if (method === 'resources/list') {
+    return res.json({ 
+      jsonrpc: '2.0', 
+      id, 
+      result: { 
+        resources: [{ 
+          uri: 'ui://particle-widget', 
+          name: 'Particle Widget', 
+          mimeType: 'text/html' 
+        }] 
+      } 
+    });
+  }
+  
+  if (method === 'resources/read') {
+    return res.json({ 
+      jsonrpc: '2.0', 
+      id, 
+      result: { 
+        contents: [{ 
+          uri: 'ui://particle-widget', 
+          mimeType: 'text/html', 
+          text: genWidget(presets.starryNight) 
+        }] 
+      } 
+    });
+  }
   
   return res.json({ jsonrpc: '2.0', id, error: { code: -32601, message: 'Method not found' } });
 }
