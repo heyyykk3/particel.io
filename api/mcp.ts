@@ -151,8 +151,16 @@ const widgetHtml = `<!DOCTYPE html>
 
     function start(data) {
       if (started) return;
+      // Handle both wrapped { config: ... } and direct config
       config = data?.config || data;
-      if (!config?.particles) return;
+      if (!config?.particles) {
+        // Maybe it's the whole toolOutput object
+        if (data?.name && data?.particles) {
+          config = data;
+        } else {
+          return;
+        }
+      }
       started = true;
       document.body.style.background = config.background || '#1a1a2e';
       document.getElementById("title").textContent = config.name || "Particles";
@@ -186,11 +194,9 @@ const widgetHtml = `<!DOCTYPE html>
 function handleTool(name: string, args: any): any {
   if (name === 'create_particles') {
     const cfg = matchPreset(args.prompt || '');
-    // Return ONLY structuredContent - this is what ChatGPT expects for UI
+    // Return config directly in structuredContent (not wrapped)
     return {
-      structuredContent: {
-        config: cfg
-      }
+      structuredContent: cfg
     };
   }
   
@@ -203,11 +209,9 @@ function handleTool(name: string, args: any): any {
   
   if (name === 'quick_preset') {
     const cfg = presets[args.preset] || presets.starryNight;
-    // Return ONLY structuredContent - this is what ChatGPT expects for UI
+    // Return config directly in structuredContent (not wrapped)
     return {
-      structuredContent: {
-        config: cfg
-      }
+      structuredContent: cfg
     };
   }
   
