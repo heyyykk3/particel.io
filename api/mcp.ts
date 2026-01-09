@@ -76,55 +76,60 @@ const widgetHtml = `<!DOCTYPE html>
     const canvas = document.getElementById("c");
     const ctx = canvas.getContext("2d");
     let particles = [];
-    let cfg = null;
+    let config = null;
+    let started = false;
 
     function resize() {
-      const W = document.querySelector('.container').clientWidth || 600;
-      canvas.width = W * devicePixelRatio;
-      canvas.height = 400 * devicePixelRatio;
+      const W = document.querySelector('.container')?.clientWidth || 600;
+      canvas.width = W * (window.devicePixelRatio || 1);
+      canvas.height = 400 * (window.devicePixelRatio || 1);
       canvas.style.width = W + 'px';
       canvas.style.height = '400px';
-      ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+      ctx.setTransform(window.devicePixelRatio || 1, 0, 0, window.devicePixelRatio || 1, 0, 0);
     }
     window.addEventListener("resize", resize);
     resize();
 
     function initParticles() {
-      const W = document.querySelector('.container').clientWidth || 600;
+      const W = document.querySelector('.container')?.clientWidth || 600;
       const H = 400;
-      const p = cfg?.config?.particles || { count: 100, size: [2,4], speed: 1 };
-      particles = Array.from({ length: p.count || 100 }, () => ({
-        x: Math.random() * W, y: Math.random() * H,
-        r: (p.size?.[0] || 2) + Math.random() * ((p.size?.[1] || 4) - (p.size?.[0] || 2)),
-        vy: (p.speed || 1) * (0.5 + Math.random()),
-        vx: (Math.random() - 0.5) * (p.speed || 1),
-        o: 0.3 + Math.random() * 0.7,
-        ph: Math.random() * Math.PI * 2
-      }));
+      const p = config?.particles || { count: 100, size: [2,4], speed: 1 };
+      particles = [];
+      for (let i = 0; i < (p.count || 100); i++) {
+        particles.push({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          r: (p.size?.[0] || 2) + Math.random() * ((p.size?.[1] || 4) - (p.size?.[0] || 2)),
+          vy: (p.speed || 1) * (0.5 + Math.random()),
+          vx: (Math.random() - 0.5) * (p.speed || 1),
+          o: 0.3 + Math.random() * 0.7,
+          ph: Math.random() * Math.PI * 2
+        });
+      }
     }
 
     function getColor(p) {
-      const color = cfg?.config?.particles?.color || '#ffffff';
+      const color = config?.particles?.color || '#ffffff';
       if (color === 'rainbow') return 'hsl(' + ((Date.now()/50 + p.ph*100) % 360) + ', 80%, 60%)';
       if (color === 'multi') return ['#ff6b6b','#4ecdc4','#45b7d1','#96ceb4','#ffeaa7'][Math.floor(p.ph * 5) % 5];
       return color;
     }
 
     function tick() {
-      if (!cfg) return requestAnimationFrame(tick);
-      const W = document.querySelector('.container').clientWidth || 600;
+      if (!config) { requestAnimationFrame(tick); return; }
+      const W = document.querySelector('.container')?.clientWidth || 600;
       const H = 400;
       ctx.clearRect(0, 0, W, H);
-      const t = cfg?.config?.particles?.type || 'float';
-      const speed = cfg?.config?.particles?.speed || 1;
+      const t = config?.particles?.type || 'float';
+      const speed = config?.particles?.speed || 1;
 
       for (const p of particles) {
-        if (t === 'star') { p.x += p.vx * 0.1; p.y += p.vy * 0.1; if (cfg?.config?.particles?.twinkle) p.o = 0.3 + Math.abs(Math.sin(Date.now()/1000 + p.ph)) * 0.7; }
+        if (t === 'star') { p.x += p.vx * 0.1; p.y += p.vy * 0.1; if (config?.particles?.twinkle) p.o = 0.3 + Math.abs(Math.sin(Date.now()/1000 + p.ph)) * 0.7; }
         else if (t === 'snow') { p.x += Math.sin(Date.now()/2000 + p.ph) * 0.5; p.y += speed * 0.5; if (p.y > H) { p.y = -10; p.x = Math.random() * W; } }
         else if (t === 'rain') { p.y += speed; if (p.y > H) { p.y = -10; p.x = Math.random() * W; } }
         else if (t === 'bubble') { p.x += Math.sin(Date.now()/1500 + p.ph) * 0.5; p.y -= speed * 0.3; if (p.y < -10) { p.y = H + 10; p.x = Math.random() * W; } }
         else if (t === 'petal') { p.x += Math.sin(Date.now()/1000 + p.ph); p.y += speed; if (p.y > H) { p.y = -10; p.x = Math.random() * W; } }
-        else if (t === 'glow') { p.x += Math.sin(Date.now()/2000 + p.ph) * 0.5; p.y += Math.cos(Date.now()/2000 + p.ph) * 0.5; if (cfg?.config?.particles?.pulse) p.o = 0.2 + Math.abs(Math.sin(Date.now()/500 + p.ph)) * 0.8; }
+        else if (t === 'glow') { p.x += Math.sin(Date.now()/2000 + p.ph) * 0.5; p.y += Math.cos(Date.now()/2000 + p.ph) * 0.5; if (config?.particles?.pulse) p.o = 0.2 + Math.abs(Math.sin(Date.now()/500 + p.ph)) * 0.8; }
         else if (t === 'wave') { p.x += speed; p.y += Math.sin(Date.now()/1000 + p.ph) * 0.5; if (p.x > W) p.x = -10; }
         else if (t === 'aurora') { p.x += Math.sin(Date.now()/3000 + p.ph) * 2; p.y += Math.cos(Date.now()/4000 + p.ph) * 0.5; p.o = 0.3 + Math.abs(Math.sin(Date.now()/2000 + p.ph)) * 0.5; }
         else if (t === 'galaxy') { const cx = W/2, cy = H/2, a = Math.atan2(p.y-cy, p.x-cx) + speed * 0.01, d = Math.sqrt((p.x-cx)**2 + (p.y-cy)**2); p.x = cx + Math.cos(a) * d; p.y = cy + Math.sin(a) * d; }
@@ -144,17 +149,35 @@ const widgetHtml = `<!DOCTYPE html>
       requestAnimationFrame(tick);
     }
 
-    function render() {
-      cfg = window.openai?.toolOutput;
-      if (!cfg) { document.getElementById("title").textContent = "Waiting..."; return; }
-      document.body.style.background = cfg?.config?.background || '#1a1a2e';
-      document.getElementById("title").textContent = cfg?.config?.name || "Particles";
-      document.getElementById("info").textContent = (cfg?.config?.particles?.count || 100) + " particles";
+    function start(data) {
+      if (started) return;
+      config = data?.config || data;
+      if (!config?.particles) return;
+      started = true;
+      document.body.style.background = config.background || '#1a1a2e';
+      document.getElementById("title").textContent = config.name || "Particles";
+      document.getElementById("info").textContent = (config.particles?.count || 100) + " particles";
       initParticles();
     }
 
-    window.addEventListener("load", () => { render(); tick(); });
-    if (window.openai?.toolOutput) render();
+    // Try to get data immediately
+    if (window.openai?.toolOutput) {
+      start(window.openai.toolOutput);
+    }
+
+    // Poll for data (in case it's not ready yet)
+    let attempts = 0;
+    const poll = setInterval(() => {
+      attempts++;
+      if (window.openai?.toolOutput && !started) {
+        start(window.openai.toolOutput);
+        clearInterval(poll);
+      }
+      if (attempts > 50) clearInterval(poll); // Stop after 5 seconds
+    }, 100);
+
+    // Start animation loop
+    tick();
   </script>
 </body>
 </html>`;
