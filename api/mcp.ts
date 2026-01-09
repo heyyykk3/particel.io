@@ -59,23 +59,27 @@ function matchPreset(prompt: string): any {
   return { ...presets.starryNight };
 }
 
-// Widget HTML served as resource
+// Widget HTML served as resource - fixed 400px height box
 const widgetHtml = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <style>
-    html, body { margin: 0; height: 100%; }
-    body { overflow: hidden; font-family: system-ui, sans-serif; background: #1a1a2e; }
-    #hud { position: fixed; top: 12px; left: 12px; background: rgba(0,0,0,0.35); color: white; padding: 10px 12px; border-radius: 12px; backdrop-filter: blur(6px); z-index: 10; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 400px; overflow: hidden; }
+    body { font-family: system-ui, sans-serif; background: #1a1a2e; border-radius: 12px; }
+    .container { width: 100%; height: 400px; position: relative; border-radius: 12px; overflow: hidden; }
+    #hud { position: absolute; top: 12px; left: 12px; background: rgba(0,0,0,0.4); color: white; padding: 10px 14px; border-radius: 10px; backdrop-filter: blur(6px); z-index: 10; }
     #hud .title { font-size: 18px; font-weight: 700; }
-    #hud .info { opacity: 0.85; font-size: 13px; margin-top: 4px; }
-    canvas { display: block; }
+    #hud .info { opacity: 0.85; font-size: 12px; margin-top: 4px; }
+    canvas { display: block; width: 100%; height: 100%; border-radius: 12px; }
   </style>
 </head>
 <body>
-  <canvas id="c"></canvas>
-  <div id="hud"><div class="title" id="title">Loading…</div><div class="info" id="info"></div></div>
+  <div class="container">
+    <canvas id="c"></canvas>
+    <div id="hud"><div class="title" id="title">Loading…</div><div class="info" id="info"></div></div>
+  </div>
   <script>
     const canvas = document.getElementById("c");
     const ctx = canvas.getContext("2d");
@@ -83,21 +87,29 @@ const widgetHtml = `<!DOCTYPE html>
     let cfg = null;
 
     function resize() {
-      canvas.width = window.innerWidth * devicePixelRatio;
-      canvas.height = window.innerHeight * devicePixelRatio;
+      const container = document.querySelector('.container');
+      const W = container.clientWidth;
+      const H = 400;
+      canvas.width = W * devicePixelRatio;
+      canvas.height = H * devicePixelRatio;
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
       ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
     }
     window.addEventListener("resize", resize);
     resize();
 
     function initParticles() {
+      const container = document.querySelector('.container');
+      const W = container.clientWidth;
+      const H = 400;
       const p = cfg?.config?.particles ?? {};
       const count = p.count ?? 150;
       const sizeRange = p.size ?? [2, 5];
       const speed = p.speed ?? 1;
       particles = Array.from({ length: count }, () => ({
-        x: Math.random() * window.innerWidth,
-        y: Math.random() * window.innerHeight,
+        x: Math.random() * W,
+        y: Math.random() * H,
         r: sizeRange[0] + Math.random() * (sizeRange[1] - sizeRange[0]),
         vy: speed * (0.5 + Math.random()),
         vx: (Math.random() - 0.5) * speed,
@@ -118,7 +130,9 @@ const widgetHtml = `<!DOCTYPE html>
 
     function tick() {
       if (!cfg) return requestAnimationFrame(tick);
-      const W = window.innerWidth, H = window.innerHeight;
+      const container = document.querySelector('.container');
+      const W = container.clientWidth;
+      const H = 400;
       ctx.clearRect(0, 0, W, H);
       const t = cfg?.config?.particles?.type ?? 'float';
       const speed = cfg?.config?.particles?.speed ?? 1;
@@ -173,7 +187,8 @@ function handleTool(name: string, args: any): any {
     const cfg = matchPreset(args.prompt || '');
     return {
       content: [{ type: 'text', text: `✨ ${cfg.name}` }],
-      structuredContent: { config: cfg }
+      structuredContent: { config: cfg },
+      _meta: { 'openai/outputTemplate': WIDGET_URI }
     };
   }
   
@@ -188,7 +203,8 @@ function handleTool(name: string, args: any): any {
     const cfg = presets[args.preset] || presets.starryNight;
     return {
       content: [{ type: 'text', text: `✨ ${cfg.name}` }],
-      structuredContent: { config: cfg }
+      structuredContent: { config: cfg },
+      _meta: { 'openai/outputTemplate': WIDGET_URI }
     };
   }
   
