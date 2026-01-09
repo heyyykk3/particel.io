@@ -15,9 +15,31 @@ const presets: Record<string, any> = {
 };
 
 const tools = [
-  { name: 'create_particles', description: 'Create a soothing particle animation. Try: starry night, ocean, fireflies, cherry blossoms, snow, aurora, rain, bubbles, galaxy, fire, zen', inputSchema: { type: 'object', properties: { prompt: { type: 'string', description: 'Describe the scene' }, mood: { type: 'string', enum: ['calm', 'dreamy', 'energetic', 'peaceful', 'mystical'] } }, required: ['prompt'] } },
+  { 
+    name: 'create_particles', 
+    description: 'Create a soothing particle animation. Try: starry night, ocean, fireflies, cherry blossoms, snow, aurora, rain, bubbles, galaxy, fire, zen', 
+    inputSchema: { type: 'object', properties: { prompt: { type: 'string', description: 'Describe the scene' }, mood: { type: 'string', enum: ['calm', 'dreamy', 'energetic', 'peaceful', 'mystical'] } }, required: ['prompt'] },
+    _meta: {
+      'openai/outputTemplate': 'ui://particle-widget.html',
+      'openai/toolInvocation/invoking': 'Creating particles...',
+      'openai/toolInvocation/invoked': 'Particles ready!',
+      'openai/widgetAccessible': true,
+      'openai/resultCanProduceWidget': true
+    }
+  },
   { name: 'list_presets', description: 'Show all particle presets', inputSchema: { type: 'object', properties: {} } },
-  { name: 'quick_preset', description: 'Show a preset animation', inputSchema: { type: 'object', properties: { preset: { type: 'string', enum: Object.keys(presets) } }, required: ['preset'] } },
+  { 
+    name: 'quick_preset', 
+    description: 'Show a preset animation', 
+    inputSchema: { type: 'object', properties: { preset: { type: 'string', enum: Object.keys(presets) } }, required: ['preset'] },
+    _meta: {
+      'openai/outputTemplate': 'ui://particle-widget.html',
+      'openai/toolInvocation/invoking': 'Loading preset...',
+      'openai/toolInvocation/invoked': 'Preset ready!',
+      'openai/widgetAccessible': true,
+      'openai/resultCanProduceWidget': true
+    }
+  },
 ];
 
 function matchPreset(prompt: string): any {
@@ -137,15 +159,17 @@ function handleTool(name: string, args: any): any {
     return {
       content: [
         { type: 'text', text: `✨ ${cfg.name} created!` },
-        { 
+      ],
+      _meta: {
+        'openai.com/widget': {
           type: 'resource',
           resource: {
-            uri: 'ui://particle-widget',
-            mimeType: 'text/html',
+            uri: 'ui://particle-widget.html',
+            mimeType: 'text/html+skybridge',
             text: html
           }
         }
-      ]
+      }
     };
   }
   
@@ -165,15 +189,17 @@ function handleTool(name: string, args: any): any {
     return {
       content: [
         { type: 'text', text: `✨ ${cfg.name}` },
-        {
+      ],
+      _meta: {
+        'openai.com/widget': {
           type: 'resource',
           resource: {
-            uri: 'ui://particle-widget',
-            mimeType: 'text/html',
+            uri: 'ui://particle-widget.html',
+            mimeType: 'text/html+skybridge',
             text: html
           }
         }
-      ]
+      }
     };
   }
   
@@ -215,9 +241,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       id, 
       result: { 
         resources: [{ 
-          uri: 'ui://particle-widget', 
+          uri: 'ui://particle-widget.html', 
           name: 'Particle Widget', 
-          mimeType: 'text/html' 
+          mimeType: 'text/html+skybridge',
+          _meta: {
+            'openai/widgetDescription': 'Soothing particle animation widget',
+            'openai/widgetPrefersBorder': true
+          }
         }] 
       } 
     });
@@ -229,8 +259,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       id, 
       result: { 
         contents: [{ 
-          uri: 'ui://particle-widget', 
-          mimeType: 'text/html', 
+          uri: 'ui://particle-widget.html', 
+          mimeType: 'text/html+skybridge', 
           text: genWidget(presets.starryNight) 
         }] 
       } 
