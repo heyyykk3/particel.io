@@ -79,6 +79,9 @@ const widgetHtml = `<!DOCTYPE html>
     let config = null;
     let started = false;
 
+    // Debug: log what we receive
+    console.log('Widget loaded, window.openai:', window.openai);
+
     function resize() {
       const W = document.querySelector('.container')?.clientWidth || 600;
       canvas.width = W * (window.devicePixelRatio || 1);
@@ -151,6 +154,8 @@ const widgetHtml = `<!DOCTYPE html>
 
     function start(data) {
       if (started) return;
+      console.log('start() called with:', data);
+      
       // Handle both wrapped { config: ... } and direct config
       config = data?.config || data;
       if (!config?.particles) {
@@ -158,18 +163,33 @@ const widgetHtml = `<!DOCTYPE html>
         if (data?.name && data?.particles) {
           config = data;
         } else {
+          console.log('No valid config found in:', data);
           return;
         }
       }
       started = true;
+      console.log('Starting with config:', config);
       document.body.style.background = config.background || '#1a1a2e';
       document.getElementById("title").textContent = config.name || "Particles";
       document.getElementById("info").textContent = (config.particles?.count || 100) + " particles";
       initParticles();
     }
 
+    // Listen for postMessage from parent (ChatGPT)
+    window.addEventListener('message', (event) => {
+      console.log('Received message:', event.data);
+      if (event.data?.toolOutput) {
+        start(event.data.toolOutput);
+      } else if (event.data?.type === 'tool-output') {
+        start(event.data.payload);
+      } else if (event.data?.particles) {
+        start(event.data);
+      }
+    });
+
     // Try to get data immediately
     if (window.openai?.toolOutput) {
+      console.log('Found window.openai.toolOutput:', window.openai.toolOutput);
       start(window.openai.toolOutput);
     }
 
@@ -177,11 +197,16 @@ const widgetHtml = `<!DOCTYPE html>
     let attempts = 0;
     const poll = setInterval(() => {
       attempts++;
-      if (window.openai?.toolOutput && !started) {
-        start(window.openai.toolOutput);
+      const data = window.openai?.toolOutput;
+      if (data && !started) {
+        console.log('Poll found data:', data);
+        start(data);
         clearInterval(poll);
       }
-      if (attempts > 50) clearInterval(poll); // Stop after 5 seconds
+      if (attempts > 100) {
+        console.log('Polling timed out. window.openai:', window.openai);
+        clearInterval(poll);
+      }
     }, 100);
 
     // Start animation loop
