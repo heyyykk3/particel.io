@@ -1,0 +1,25 @@
+{
+  "name": "particle-presentations",
+  "version": "1.0.0",
+  "description": "Soothing particle animations for ChatGPT - OpenAI Apps SDK",
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "tsc",
+    "start": "node dist/server/index.js",
+    "local": "tsx src/server/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "express": "^4.21.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "@vercel/node": "^3.2.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vercel": "^37.0.0"
+  }
+}

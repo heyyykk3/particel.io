@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+      width: 100%;
+      height: 100vh;
+    }
+    .container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .info {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      color: rgba(255,255,255,0.8);
+      font-size: 14px;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+      z-index: 10;
+    }
+    .title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .prompt {
+      font-size: 12px;
+      opacity: 0.7;
+      font-style: italic;
+    }
+    .controls {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      display: flex;
+      gap: 8px;
+      z-index: 10;
+    }
+    .btn {
+      background: rgba(255,255,255,0.15);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      background: rgba(255,255,255,0.25);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <canvas id="canvas"></canvas>
+    <div class="info">
+      <div class="title" id="title">Particle Presentation</div>
+      <div class="prompt" id="promptText"></div>
+    </div>
+    <div class="controls">
+      <button class="btn" onclick="togglePause()">⏸️ Pause</button>
+      <button class="btn" onclick="resetParticles()">🔄 Reset</button>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      let particles = [];
+      let config = null;
+      let isPaused = false;
+      let animationId = null;
+
+      function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+      window.addEventListener('resize', resize);
+      resize();
+
+      class Particle {
+        constructor(cfg) {
+          this.cfg = cfg;
+          this.reset();
+        }
+
+        reset() {
+          const p = this.cfg.particles;
+          this.x = Math.random() * canvas.width;
+          this.y = Math.random() * canvas.height;
+          this.size = p.size[0] + Math.random() * (p.size[1] - p.size[0]);
+          this.speedX = (Math.random() - 0.5) * p.speed;
+          this.speedY = (Math.random() - 0.5) * p.speed;
+          this.opacity = 0.3 + Math.random() * 0.7;
+          this.phase = Math.random() * Math.PI * 2;
+          this.rotation = Math.random() * 360;
+          this.rotationSpeed = (Math.random() - 0.5) * 2;
+          
+          // Type-specific init
+          if (p.type === 'rain' || p.type === 'snow') {
+            this.y = -this.size;
+            this.speedY = p.speed * (0.5 + Math.random() * 0.5);
+          }
+          if (p.type === 'bubble') {
+            this.y = canvas.height + this.size;
+            this.speedY = -p.speed * (0.3 + Math.random() * 0.7);
+          }
+        }
+
+        getColor() {
+          const p = this.cfg.particles;
+          if (p.color === 'rainbow') {
+            const hue = (Date.now() / 50 + this.phase * 100) % 360;
+            return `hsla(${hue}, 80%, 60%, ${this.opacity})`;
+          }
+          if (p.color === 'multi') {
+            const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dfe6e9'];
+            return colors[Math.floor(this.phase * colors.length) % colors.length];
+          }
+          return p.color;
+        }
+
+        update() {
+          const p = this.cfg.particles;
+          
+          // Movement based on type
+          switch (p.type) {
+            case 'star':
+              this.x += this.speedX * 0.1;
+              this.y += this.speedY * 0.1;
+              if (p.twinkle) {
+                this.opacity = 0.3 + Math.abs(Math.sin(Date.now() / 1000 + this.phase)) * 0.7;
+              }
+              break;
+              
+            case 'wave':
+            case 'ocean':
+              this.x += p.speed;
+              this.y += Math.sin(Date.now() / 1000 + this.phase) * 0.5;
+              if (this.x > canvas.width + this.size) this.x = -this.size;
+              break;
+              
+            case 'glow':
+            case 'firefly':
+              this.x += Math.sin(Date.now() / 2000 + this.phase) * 0.5;
+              this.y += Math.cos(Date.now() / 2000 + this.phase * 1.5) * 0.5;
+              if (p.pulse) {
+                this.opacity = 0.2 + Math.abs(Math.sin(Date.now() / 500 + this.phase)) * 0.8;
+              }
+              break;
+              
+            case 'petal':
+            case 'sakura':
+              this.x += Math.sin(Date.now() / 1000 + this.phase) * 1;
+              this.y += p.speed;
+              if (p.rotate) this.rotation += this.rotationSpeed;
+              if (this.y > canvas.height + this.size) {
+                this.y = -this.size;
+                this.x = Math.random() * canvas.width;
+              }
+              break;
+              
+            case 'snow':
+              this.x += Math.sin(Date.now() / 2000 + this.phase) * (p.drift ? 1 : 0.3);
+              this.y += this.speedY;
+              if (this.y > canvas.height + this.size) {
+                this.y = -this.size;
+                this.x = Math.random() * canvas.width;
+              }
+              break;
+              
+            case 'rain':
+              this.x += p.streak ? 0.5 : 0;
+              this.y += this.speedY;
+              if (this.y > canvas.height + this.size) {
+                this.y = -this.size;
+                this.x = Math.random() * canvas.width;
+              }
+              break;
+              
+            case 'bubble':
+              this.x += Math.sin(Date.now() / 1500 + this.phase) * 0.5;
+              this.y += this.speedY;
+              if (this.y < -this.size) {
+                this.y = canvas.height + this.size;
+                this.x = Math.random() * canvas.width;
+              }
+              break;
+              
+            case 'aurora':
+              this.x += Math.sin(Date.now() / 3000 + this.phase) * 2;
+              this.y += Math.cos(Date.now() / 4000 + this.phase) * 0.5;
+              this.opacity = 0.3 + Math.abs(Math.sin(Date.now() / 2000 + this.phase)) * 0.5;
+              break;
+              
+            case 'galaxy':
+              const cx = canvas.width / 2;
+              const cy = canvas.height / 2;
+              const angle = Math.atan2(this.y - cy, this.x - cx);
+              const dist = Math.sqrt((this.x - cx) ** 2 + (this.y - cy) ** 2);
+              const newAngle = angle + p.speed * 0.01;
+              this.x = cx + Math.cos(newAngle) * dist;
+              this.y = cy + Math.sin(newAngle) * dist;
+              break;
+              
+            case 'sand':
+            case 'zen':
+              this.x += Math.sin(Date.now() / 5000 + this.phase) * 0.2;
+              this.y += Math.cos(Date.now() / 5000 + this.phase) * 0.2;
+              break;
+              
+            default:
+              this.x += this.speedX;
+              this.y += this.speedY;
+              if (p.glow) {
+                this.opacity = 0.4 + Math.abs(Math.sin(Date.now() / 1000 + this.phase)) * 0.6;
+              }
+          }
+
+          // Wrap around
+          if (p.type !== 'rain' && p.type !== 'snow' && p.type !== 'bubble' && p.type !== 'petal') {
+            if (this.x < -this.size) this.x = canvas.width + this.size;
+            if (this.x > canvas.width + this.size) this.x = -this.size;
+            if (this.y < -this.size) this.y = canvas.height + this.size;
+            if (this.y > canvas.height + this.size) this.y = -this.size;
+          }
+        }
+
+        draw() {
+          const p = this.cfg.particles;
+          const color = this.getColor();
+          
+          ctx.save();
+          ctx.globalAlpha = this.opacity;
+          
+          if (p.rotate) {
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.rotation * Math.PI / 180);
+            ctx.translate(-this.x, -this.y);
+          }
+
+          switch (p.type) {
+            case 'star':
+              this.drawStar(color);
+              break;
+            case 'petal':
+            case 'sakura':
+              this.drawPetal(color);
+              break;
+            case 'rain':
+              this.drawRain(color);
+              break;
+            case 'bubble':
+              this.drawBubble(color);
+              break;
+            case 'glow':
+            case 'firefly':
+            case 'aurora':
+              this.drawGlow(color);
+              break;
+            default:
+              this.drawCircle(color);
+          }
+          
+          ctx.restore();
+        }
+
+        drawCircle(color) {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
+        }
+
+        drawStar(color) {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.shadowColor = color;
+          ctx.shadowBlur = this.size * 2;
+          ctx.fill();
+        }
+
+        drawPetal(color) {
+          ctx.beginPath();
+          ctx.ellipse(this.x, this.y, this.size, this.size / 2, this.rotation * Math.PI / 180, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
+        }
+
+        drawRain(color) {
+          ctx.beginPath();
+          ctx.moveTo(this.x, this.y);
+          ctx.lineTo(this.x + 1, this.y + this.size * 3);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+
+        drawBubble(color) {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          // Highlight
+          ctx.beginPath();
+          ctx.arc(this.x - this.size * 0.3, this.y - this.size * 0.3, this.size * 0.2, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255,255,255,0.6)';
+          ctx.fill();
+        }
+
+        drawGlow(color) {
+          const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 3);
+          gradient.addColorStop(0, color);
+          gradient.addColorStop(1, 'transparent');
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size * 3, 0, Math.PI * 2);
+          ctx.fillStyle = gradient;
+          ctx.fill();
+        }
+      }
+
+      function initParticles() {
+        particles = [];
+        if (!config) return;
+        for (let i = 0; i < config.particles.count; i++) {
+          particles.push(new Particle(config));
+        }
+      }
+
+      function animate() {
+        if (isPaused) {
+          animationId = requestAnimationFrame(animate);
+          return;
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        particles.forEach(p => {
+          p.update();
+          p.draw();
+        });
+
+        animationId = requestAnimationFrame(animate);
+      }
+
+      window.togglePause = function() {
+        isPaused = !isPaused;
+        document.querySelector('.btn').textContent = isPaused ? '▶️ Play' : '⏸️ Pause';
+      };
+
+      window.resetParticles = function() {
+        initParticles();
+      };
+
+      // Initialize from Apps SDK data
+      function init(data) {
+        config = data;
+        document.body.style.background = data.background;
+        document.getElementById('title').textContent = data.name || 'Particle Presentation';
+        document.getElementById('promptText').textContent = data.prompt ? `"${data.prompt}"` : '';
+        initParticles();
+        animate();
+      }
+
+      // Apps SDK: Get data from ChatGPT
+      if (window.openai && window.openai.toolOutput) {
+        init(window.openai.toolOutput);
+      } else {
+        // Fallback for testing
+        init({
+          name: 'Starry Night',
+          background: 'linear-gradient(to bottom, #0f0c29, #302b63, #24243e)',
+          particles: { count: 150, color: '#ffffff', size: [1, 3], speed: 0.3, type: 'star', twinkle: true },
+          prompt: 'starry night sky'
+        });
+      }
+    })();
+  </script>
+</body>
+</html>
