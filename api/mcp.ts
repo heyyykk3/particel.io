@@ -16,6 +16,33 @@ const presets: Record<string, any> = {
   zen: { name: 'Zen Garden', background: 'linear-gradient(to bottom, #f5f5dc, #e8e4c9, #d4cfb4)', particles: { count: 30, color: '#8b7355', size: [3, 6], speed: 0.3, type: 'sand' } },
 };
 
+const WIDGET_URI = 'ui://widget/particles.html';
+
+// Tools with _meta["openai/outputTemplate"] pointing to the resource
+const tools = [
+  { 
+    name: 'create_particles', 
+    description: 'Create a soothing particle animation. Try: starry night, ocean, fireflies, cherry blossoms, snow, aurora, rain, bubbles, galaxy, fire, zen',
+    inputSchema: { type: 'object', properties: { prompt: { type: 'string', description: 'Describe the particle scene' } }, required: ['prompt'] },
+    _meta: {
+      'openai/outputTemplate': WIDGET_URI
+    }
+  },
+  { 
+    name: 'list_presets', 
+    description: 'Show all available particle presets',
+    inputSchema: { type: 'object', properties: {} } 
+  },
+  { 
+    name: 'quick_preset', 
+    description: 'Show a preset particle animation',
+    inputSchema: { type: 'object', properties: { preset: { type: 'string', enum: Object.keys(presets) } }, required: ['preset'] },
+    _meta: {
+      'openai/outputTemplate': WIDGET_URI
+    }
+  },
+];
+
 function matchPreset(prompt: string): any {
   const p = prompt.toLowerCase();
   if (p.includes('star') || p.includes('night')) return { ...presets.starryNight };
@@ -32,44 +59,140 @@ function matchPreset(prompt: string): any {
   return { ...presets.starryNight };
 }
 
-// Tools with ui.resource pointing to widget URL
-const tools = [
-  { 
-    name: 'create_particles', 
-    description: 'Create a soothing particle animation. Try: starry night, ocean, fireflies, cherry blossoms, snow, aurora, rain, bubbles, galaxy, fire, zen',
-    inputSchema: { type: 'object', properties: { prompt: { type: 'string', description: 'Describe the particle scene' } }, required: ['prompt'] },
-    ui: { type: 'html', resource: `${BASE_URL}/widget.html` }
-  },
-  { 
-    name: 'list_presets', 
-    description: 'Show all available particle presets',
-    inputSchema: { type: 'object', properties: {} } 
-  },
-  { 
-    name: 'quick_preset', 
-    description: 'Show a preset particle animation',
-    inputSchema: { type: 'object', properties: { preset: { type: 'string', enum: Object.keys(presets) } }, required: ['preset'] },
-    ui: { type: 'html', resource: `${BASE_URL}/widget.html` }
-  },
-];
+// Widget HTML served as resource
+const widgetHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    html, body { margin: 0; height: 100%; }
+    body { overflow: hidden; font-family: system-ui, sans-serif; background: #1a1a2e; }
+    #hud { position: fixed; top: 12px; left: 12px; background: rgba(0,0,0,0.35); color: white; padding: 10px 12px; border-radius: 12px; backdrop-filter: blur(6px); z-index: 10; }
+    #hud .title { font-size: 18px; font-weight: 700; }
+    #hud .info { opacity: 0.85; font-size: 13px; margin-top: 4px; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div id="hud"><div class="title" id="title">Loading…</div><div class="info" id="info"></div></div>
+  <script>
+    const canvas = document.getElementById("c");
+    const ctx = canvas.getContext("2d");
+    let particles = [];
+    let cfg = null;
+
+    function resize() {
+      canvas.width = window.innerWidth * devicePixelRatio;
+      canvas.height = window.innerHeight * devicePixelRatio;
+      ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+    function initParticles() {
+      const p = cfg?.config?.particles ?? {};
+      const count = p.count ?? 150;
+      const sizeRange = p.size ?? [2, 5];
+      const speed = p.speed ?? 1;
+      particles = Array.from({ length: count }, () => ({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        r: sizeRange[0] + Math.random() * (sizeRange[1] - sizeRange[0]),
+        vy: speed * (0.5 + Math.random()),
+        vx: (Math.random() - 0.5) * speed,
+        o: 0.3 + Math.random() * 0.7,
+        ph: Math.random() * Math.PI * 2
+      }));
+    }
+
+    function getColor(p) {
+      const color = cfg?.config?.particles?.color ?? '#ffffff';
+      if (color === 'rainbow') return \`hsl(\${(Date.now()/50 + p.ph*100) % 360}, 80%, 60%)\`;
+      if (color === 'multi') {
+        const cs = ['#ff6b6b','#4ecdc4','#45b7d1','#96ceb4','#ffeaa7'];
+        return cs[Math.floor(p.ph * cs.length) % cs.length];
+      }
+      return color;
+    }
+
+    function tick() {
+      if (!cfg) return requestAnimationFrame(tick);
+      const W = window.innerWidth, H = window.innerHeight;
+      ctx.clearRect(0, 0, W, H);
+      const t = cfg?.config?.particles?.type ?? 'float';
+      const speed = cfg?.config?.particles?.speed ?? 1;
+
+      for (const p of particles) {
+        if (t === 'star') { p.x += p.vx * 0.1; p.y += p.vy * 0.1; if (cfg?.config?.particles?.twinkle) p.o = 0.3 + Math.abs(Math.sin(Date.now()/1000 + p.ph)) * 0.7; }
+        else if (t === 'snow') { p.x += Math.sin(Date.now()/2000 + p.ph) * 0.5; p.y += speed * 0.5; if (p.y > H) { p.y = -10; p.x = Math.random() * W; } }
+        else if (t === 'rain') { p.y += speed; if (p.y > H) { p.y = -10; p.x = Math.random() * W; } }
+        else if (t === 'bubble') { p.x += Math.sin(Date.now()/1500 + p.ph) * 0.5; p.y -= speed * 0.3; if (p.y < -10) { p.y = H + 10; p.x = Math.random() * W; } }
+        else if (t === 'petal') { p.x += Math.sin(Date.now()/1000 + p.ph); p.y += speed; if (p.y > H) { p.y = -10; p.x = Math.random() * W; } }
+        else if (t === 'glow') { p.x += Math.sin(Date.now()/2000 + p.ph) * 0.5; p.y += Math.cos(Date.now()/2000 + p.ph) * 0.5; if (cfg?.config?.particles?.pulse) p.o = 0.2 + Math.abs(Math.sin(Date.now()/500 + p.ph)) * 0.8; }
+        else if (t === 'wave') { p.x += speed; p.y += Math.sin(Date.now()/1000 + p.ph) * 0.5; if (p.x > W) p.x = -10; }
+        else if (t === 'aurora') { p.x += Math.sin(Date.now()/3000 + p.ph) * 2; p.y += Math.cos(Date.now()/4000 + p.ph) * 0.5; p.o = 0.3 + Math.abs(Math.sin(Date.now()/2000 + p.ph)) * 0.5; }
+        else if (t === 'galaxy') { const cx = W/2, cy = H/2, a = Math.atan2(p.y-cy, p.x-cx) + speed * 0.01, d = Math.sqrt((p.x-cx)**2 + (p.y-cy)**2); p.x = cx + Math.cos(a) * d; p.y = cy + Math.sin(a) * d; }
+        else if (t === 'fire') { p.y -= speed * (0.5 + Math.random() * 0.5); p.x += Math.sin(Date.now()/500 + p.ph) * 0.5; p.o -= 0.01; if (p.o <= 0 || p.y < 0) { p.y = H; p.x = W/2 + (Math.random()-0.5)*100; p.o = 0.8; } }
+        else { p.x += p.vx; p.y += p.vy; }
+
+        if (p.x < -10) p.x = W + 10;
+        if (p.x > W + 10) p.x = -10;
+        if (!['snow','rain','bubble','petal','fire'].includes(t)) { if (p.y < -10) p.y = H + 10; if (p.y > H + 10) p.y = -10; }
+
+        ctx.globalAlpha = p.o;
+        const color = getColor(p);
+
+        if (t === 'rain') { ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, p.y + p.r * 3); ctx.strokeStyle = color; ctx.stroke(); }
+        else if (t === 'bubble') { ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.strokeStyle = color; ctx.stroke(); }
+        else if (['glow','aurora','fire'].includes(t)) { const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 3); g.addColorStop(0, color); g.addColorStop(1, 'transparent'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 3, 0, Math.PI * 2); ctx.fill(); }
+        else { ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fillStyle = color; if (t === 'star') { ctx.shadowColor = color; ctx.shadowBlur = p.r * 2; } ctx.fill(); ctx.shadowBlur = 0; }
+      }
+      requestAnimationFrame(tick);
+    }
+
+    function render() {
+      cfg = window.openai?.toolOutput;
+      if (!cfg) { document.getElementById("title").textContent = "Waiting..."; return; }
+      const bg = cfg?.config?.background;
+      if (bg) document.body.style.background = bg;
+      document.getElementById("title").textContent = cfg?.config?.name ?? "Particles";
+      const p = cfg?.config?.particles ?? {};
+      document.getElementById("info").textContent = p.count + " particles • " + (p.type ?? 'float');
+      initParticles();
+    }
+
+    window.addEventListener("load", () => { render(); tick(); });
+    if (window.openai?.toolOutput) render();
+  </script>
+</body>
+</html>`;
 
 function handleTool(name: string, args: any): any {
   if (name === 'create_particles') {
     const cfg = matchPreset(args.prompt || '');
-    return { config: cfg, preset: cfg.name, prompt: args.prompt };
+    return {
+      content: [{ type: 'text', text: `✨ ${cfg.name}` }],
+      structuredContent: { config: cfg }
+    };
   }
   
   if (name === 'list_presets') {
-    const list = Object.entries(presets).map(([k, v]: [string, any]) => ({ id: k, name: v.name }));
-    return { presets: list, message: 'Available presets - use quick_preset to show one!' };
+    const list = Object.entries(presets).map(([k, v]: [string, any]) => `• ${k}: ${v.name}`).join('\n');
+    return { 
+      content: [{ type: 'text', text: `✨ Available Presets:\n\n${list}\n\nUse quick_preset to show one!` }] 
+    };
   }
   
   if (name === 'quick_preset') {
     const cfg = presets[args.preset] || presets.starryNight;
-    return { config: cfg, preset: args.preset };
+    return {
+      content: [{ type: 'text', text: `✨ ${cfg.name}` }],
+      structuredContent: { config: cfg }
+    };
   }
   
-  return { error: 'Unknown tool' };
+  return { content: [{ type: 'text', text: 'Unknown tool' }], isError: true };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -98,21 +221,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   
   if (method === 'tools/call') {
-    const result = handleTool(params.name, params.arguments || {});
-    return res.json({ 
-      jsonrpc: '2.0', 
-      id, 
-      result: {
-        content: [{ type: 'text', text: JSON.stringify(result) }],
-        structuredContent: result
-      }
-    });
+    return res.json({ jsonrpc: '2.0', id, result: handleTool(params.name, params.arguments || {}) });
   }
   
+  // Resource list - ChatGPT fetches this to find the widget
   if (method === 'resources/list') {
     return res.json({ 
       jsonrpc: '2.0', id, 
-      result: { resources: [{ uri: `${BASE_URL}/widget.html`, name: 'Particle Widget', mimeType: 'text/html' }] } 
+      result: { 
+        resources: [{
+          uri: WIDGET_URI,
+          name: 'Particle Animation Widget',
+          mimeType: 'text/html+skybridge',
+          _meta: {
+            'openai/widgetDescription': 'Soothing particle animation'
+          }
+        }]
+      } 
+    });
+  }
+  
+  // Resource read - ChatGPT fetches the actual HTML
+  if (method === 'resources/read') {
+    return res.json({ 
+      jsonrpc: '2.0', id, 
+      result: { 
+        contents: [{
+          uri: WIDGET_URI,
+          mimeType: 'text/html+skybridge',
+          text: widgetHtml
+        }]
+      } 
     });
   }
   
