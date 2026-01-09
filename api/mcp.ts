@@ -219,8 +219,8 @@ const widgetHtml = `<!DOCTYPE html>
 function handleTool(name: string, args: any): any {
   if (name === 'create_particles') {
     const cfg = matchPreset(args.prompt || '');
-    // Return config directly in structuredContent (not wrapped)
     return {
+      content: [{ type: 'text', text: `✨ ${cfg.name}` }],
       structuredContent: cfg
     };
   }
@@ -234,8 +234,8 @@ function handleTool(name: string, args: any): any {
   
   if (name === 'quick_preset') {
     const cfg = presets[args.preset] || presets.starryNight;
-    // Return config directly in structuredContent (not wrapped)
     return {
+      content: [{ type: 'text', text: `✨ ${cfg.name}` }],
       structuredContent: cfg
     };
   }
