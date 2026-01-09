@@ -10,6 +10,11 @@ const presets: Record<string, any> = {
   rain: { name: 'Peaceful Rain', background: 'linear-gradient(to bottom, #373b44, #4286f4, #373b44)', particles: { count: 200, color: '#a8d8ea', size: [1, 3], speed: 8, type: 'rain' } },
   bubbles: { name: 'Floating Bubbles', background: 'linear-gradient(to bottom, #e0f7fa, #b2ebf2, #80deea)', particles: { count: 40, color: '#ffffff', size: [10, 30], speed: 0.6, type: 'bubble' } },
   galaxy: { name: 'Galaxy Spiral', background: 'radial-gradient(ellipse at center, #1a0a2e, #0d0015, #000000)', particles: { count: 300, color: 'multi', size: [1, 3], speed: 0.2, type: 'galaxy' } },
+  spiral: { name: 'Spiral Bloom', background: 'radial-gradient(circle at center, #1b1f3b, #0f1226)', particles: { count: 220, color: '#f6d365', size: [1, 3], speed: 0.2, type: 'glow', pulse: true }, pattern: { type: 'spiral', turns: 3 } },
+  ring: { name: 'Halo Ring', background: 'radial-gradient(circle at center, #0b132b, #1c2541)', particles: { count: 200, color: '#a1c4fd', size: [1, 3], speed: 0.2, type: 'star', twinkle: true }, pattern: { type: 'ring' } },
+  heart: { name: 'Heart Bloom', background: 'linear-gradient(to bottom, #2b0f1f, #1a0b14)', particles: { count: 180, color: '#ff6b6b', size: [2, 4], speed: 0.2, type: 'glow', pulse: true }, pattern: { type: 'heart' } },
+  wave: { name: 'Sine Wave', background: 'linear-gradient(to bottom, #0c2d48, #145374)', particles: { count: 160, color: '#7de2fc', size: [2, 4], speed: 0.2, type: 'wave' }, pattern: { type: 'wave', amplitude: 0.25, frequency: 2 } },
+  mandala: { name: 'Mandala Rose', background: 'radial-gradient(circle at center, #2d1b3f, #120a1a)', particles: { count: 240, color: '#ffd86f', size: [1, 3], speed: 0.2, type: 'glow', pulse: true }, pattern: { type: 'mandala', petals: 8 } },
   fire: { name: 'Warm Fire', background: 'linear-gradient(to bottom, #1a0a00, #2d1810, #0f0500)', particles: { count: 120, color: '#ff6b35', size: [2, 6], speed: 2, type: 'fire' } },
   zen: { name: 'Zen Garden', background: 'linear-gradient(to bottom, #f5f5dc, #e8e4c9, #d4cfb4)', particles: { count: 30, color: '#8b7355', size: [3, 6], speed: 0.3, type: 'sand' } },
 };
@@ -19,7 +24,7 @@ const WIDGET_URI = 'ui://widget/particles.html';
 const tools = [
   { 
     name: 'create_particles', 
-    description: 'Create a soothing particle animation. Try: starry night, ocean, fireflies, cherry blossoms, snow, aurora, rain, bubbles, galaxy, fire, zen',
+    description: 'Create a soothing particle animation. Try: starry night, ocean, fireflies, cherry blossoms, snow, aurora, rain, bubbles, galaxy, spiral, ring, heart, wave, mandala, fire, zen',
     inputSchema: { type: 'object', properties: { prompt: { type: 'string', description: 'Describe the particle scene' } }, required: ['prompt'] },
     _meta: { 'openai/outputTemplate': WIDGET_URI }
   },
@@ -39,7 +44,7 @@ const tools = [
 function matchPreset(prompt: string): any {
   const p = prompt.toLowerCase();
   if (p.includes('star') || p.includes('night')) return { ...presets.starryNight };
-  if (p.includes('ocean') || p.includes('sea') || p.includes('wave')) return { ...presets.ocean };
+  if (p.includes('ocean') || p.includes('sea')) return { ...presets.ocean };
   if (p.includes('firefl') || p.includes('glow')) return { ...presets.fireflies };
   if (p.includes('cherry') || p.includes('sakura') || p.includes('blossom')) return { ...presets.sakura };
   if (p.includes('snow')) return { ...presets.snow };
@@ -47,6 +52,11 @@ function matchPreset(prompt: string): any {
   if (p.includes('rain')) return { ...presets.rain };
   if (p.includes('bubble')) return { ...presets.bubbles };
   if (p.includes('galaxy') || p.includes('space')) return { ...presets.galaxy };
+  if (p.includes('spiral')) return { ...presets.spiral };
+  if (p.includes('ring') || p.includes('halo')) return { ...presets.ring };
+  if (p.includes('heart')) return { ...presets.heart };
+  if (p.includes('wave')) return { ...presets.wave };
+  if (p.includes('mandala') || p.includes('rose') || p.includes('flower')) return { ...presets.mandala };
   if (p.includes('fire') || p.includes('flame')) return { ...presets.fire };
   if (p.includes('zen') || p.includes('sand')) return { ...presets.zen };
   return { ...presets.starryNight };
@@ -93,18 +103,87 @@ const widgetHtml = `<!DOCTYPE html>
     window.addEventListener("resize", resize);
     resize();
 
+    function generatePatternPoints(pattern, count, width, height) {
+      const points = [];
+      const minDim = Math.min(width, height);
+      const cx = width / 2;
+      const cy = height / 2;
+      const type = pattern?.type;
+      const turns = pattern?.turns ?? 3;
+      const amplitude = pattern?.amplitude ?? 0.25;
+      const frequency = pattern?.frequency ?? 2;
+      const petals = pattern?.petals ?? 6;
+      const bands = pattern?.bands ?? 6;
+      const rows = Math.max(1, Math.ceil(count / bands));
+
+      for (let i = 0; i < count; i++) {
+        const t = i / Math.max(1, count - 1);
+        let x = cx;
+        let y = cy;
+        if (type === 'spiral') {
+          const angle = t * Math.PI * 2 * turns;
+          const radius = minDim * 0.4 * t;
+          x = cx + Math.cos(angle) * radius;
+          y = cy + Math.sin(angle) * radius;
+        } else if (type === 'ring') {
+          const angle = t * Math.PI * 2;
+          const radius = minDim * 0.35 + (Math.random() - 0.5) * minDim * 0.02;
+          x = cx + Math.cos(angle) * radius;
+          y = cy + Math.sin(angle) * radius;
+        } else if (type === 'heart') {
+          const angle = t * Math.PI * 2;
+          const sx = 16 * Math.pow(Math.sin(angle), 3);
+          const sy = 13 * Math.cos(angle) - 5 * Math.cos(2 * angle) - 2 * Math.cos(3 * angle) - Math.cos(4 * angle);
+          const scale = minDim * 0.02;
+          x = cx + sx * scale;
+          y = cy - sy * scale;
+        } else if (type === 'wave') {
+          x = t * width;
+          y = cy + Math.sin(t * Math.PI * 2 * frequency) * (height * amplitude);
+        } else if (type === 'mandala') {
+          const angle = t * Math.PI * 2;
+          const radius = minDim * 0.35 * Math.cos(petals * angle);
+          x = cx + Math.cos(angle) * radius;
+          y = cy + Math.sin(angle) * radius;
+        } else if (type === 'curtain') {
+          const band = i % bands;
+          const row = Math.floor(i / bands);
+          x = (band / Math.max(1, bands - 1)) * width;
+          y = (row / rows) * height;
+          x += (Math.random() - 0.5) * minDim * 0.02;
+          y += (Math.random() - 0.5) * minDim * 0.02;
+        }
+        points.push({ x, y });
+      }
+
+      return points;
+    }
+
     function initParticles() {
       const W = document.querySelector('.container')?.clientWidth || 600;
       const H = 400;
       const p = config?.particles || { count: 100, size: [2,4], speed: 1 };
+      const count = p.count || 100;
+      const sizeRange = p.size || [2, 5];
+      const speed = p.speed || 1;
       particles = [];
-      for (let i = 0; i < (p.count || 100); i++) {
+      const patternPoints = config?.pattern?.type
+        ? generatePatternPoints(config.pattern, count, W, H)
+        : null;
+      for (let i = 0; i < count; i++) {
+        const point = patternPoints ? patternPoints[i % patternPoints.length] : null;
+        const baseX = point ? point.x : Math.random() * W;
+        const baseY = point ? point.y : Math.random() * H;
         particles.push({
-          x: Math.random() * W,
-          y: Math.random() * H,
-          r: (p.size?.[0] || 2) + Math.random() * ((p.size?.[1] || 4) - (p.size?.[0] || 2)),
-          vy: (p.speed || 1) * (0.5 + Math.random()),
-          vx: (Math.random() - 0.5) * (p.speed || 1),
+          x: baseX,
+          y: baseY,
+          baseX: point ? baseX : null,
+          baseY: point ? baseY : null,
+          driftX: 0.8 + Math.random() * 1.6,
+          driftY: 0.8 + Math.random() * 1.6,
+          r: sizeRange[0] + Math.random() * (sizeRange[1] - sizeRange[0]),
+          vy: speed * (0.5 + Math.random()),
+          vx: (Math.random() - 0.5) * speed,
           o: 0.3 + Math.random() * 0.7,
           ph: Math.random() * Math.PI * 2
         });
@@ -125,8 +204,17 @@ const widgetHtml = `<!DOCTYPE html>
       ctx.clearRect(0, 0, W, H);
       const t = config?.particles?.type || 'float';
       const speed = config?.particles?.speed || 1;
+      const patternType = config?.pattern?.type;
 
       for (const p of particles) {
+        if (patternType && typeof p.baseX === 'number' && typeof p.baseY === 'number') {
+          const t0 = Date.now() / 1000;
+          const sway = patternType === 'curtain' ? 2.5 : 1.5;
+          p.x = p.baseX + Math.sin(t0 + p.ph) * (p.driftX || 1.5) * sway;
+          p.y = p.baseY + Math.cos(t0 * 0.9 + p.ph) * (p.driftY || 1.5);
+          if (config?.particles?.twinkle) p.o = 0.3 + Math.abs(Math.sin(Date.now()/1000 + p.ph)) * 0.7;
+          if (config?.particles?.pulse) p.o = 0.2 + Math.abs(Math.sin(Date.now()/500 + p.ph)) * 0.8;
+        } else {
         if (t === 'star') { p.x += p.vx * 0.1; p.y += p.vy * 0.1; if (config?.particles?.twinkle) p.o = 0.3 + Math.abs(Math.sin(Date.now()/1000 + p.ph)) * 0.7; }
         else if (t === 'snow') { p.x += Math.sin(Date.now()/2000 + p.ph) * 0.5; p.y += speed * 0.5; if (p.y > H) { p.y = -10; p.x = Math.random() * W; } }
         else if (t === 'rain') { p.y += speed; if (p.y > H) { p.y = -10; p.x = Math.random() * W; } }
@@ -141,6 +229,8 @@ const widgetHtml = `<!DOCTYPE html>
 
         if (p.x < -10) p.x = W + 10; if (p.x > W + 10) p.x = -10;
         if (!['snow','rain','bubble','petal','fire'].includes(t)) { if (p.y < -10) p.y = H + 10; if (p.y > H + 10) p.y = -10; }
+
+        }
 
         ctx.globalAlpha = p.o;
         const color = getColor(p);
@@ -221,7 +311,8 @@ function handleTool(name: string, args: any): any {
     const cfg = matchPreset(args.prompt || '');
     return {
       content: [{ type: 'text', text: `✨ ${cfg.name}` }],
-      structuredContent: cfg
+      structuredContent: cfg,
+      _meta: { 'openai/outputTemplate': WIDGET_URI }
     };
   }
   
@@ -236,7 +327,8 @@ function handleTool(name: string, args: any): any {
     const cfg = presets[args.preset] || presets.starryNight;
     return {
       content: [{ type: 'text', text: `✨ ${cfg.name}` }],
-      structuredContent: cfg
+      structuredContent: cfg,
+      _meta: { 'openai/outputTemplate': WIDGET_URI }
     };
   }
   

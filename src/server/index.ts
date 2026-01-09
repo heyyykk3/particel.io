@@ -75,6 +75,36 @@ const presets: Record<string, any> = {
     background: 'radial-gradient(ellipse at center, #1a0a2e, #0d0015, #000000)',
     particles: { count: 300, color: 'multi', size: [1, 3], speed: 0.2, type: 'galaxy', spiral: true },
   },
+  spiral: {
+    name: 'Spiral Bloom',
+    background: 'radial-gradient(circle at center, #1b1f3b, #0f1226)',
+    particles: { count: 220, color: '#f6d365', size: [1, 3], speed: 0.2, type: 'glow', pulse: true },
+    pattern: { type: 'spiral', turns: 3 },
+  },
+  ring: {
+    name: 'Halo Ring',
+    background: 'radial-gradient(circle at center, #0b132b, #1c2541)',
+    particles: { count: 200, color: '#a1c4fd', size: [1, 3], speed: 0.2, type: 'star', twinkle: true },
+    pattern: { type: 'ring' },
+  },
+  heart: {
+    name: 'Heart Bloom',
+    background: 'linear-gradient(to bottom, #2b0f1f, #1a0b14)',
+    particles: { count: 180, color: '#ff6b6b', size: [2, 4], speed: 0.2, type: 'glow', pulse: true },
+    pattern: { type: 'heart' },
+  },
+  wave: {
+    name: 'Sine Wave',
+    background: 'linear-gradient(to bottom, #0c2d48, #145374)',
+    particles: { count: 160, color: '#7de2fc', size: [2, 4], speed: 0.2, type: 'wave' },
+    pattern: { type: 'wave', amplitude: 0.25, frequency: 2 },
+  },
+  mandala: {
+    name: 'Mandala Rose',
+    background: 'radial-gradient(circle at center, #2d1b3f, #120a1a)',
+    particles: { count: 240, color: '#ffd86f', size: [1, 3], speed: 0.2, type: 'glow', pulse: true },
+    pattern: { type: 'mandala', petals: 8 },
+  },
   zen: {
     name: 'Zen Garden',
     background: 'linear-gradient(to bottom, #f5f5dc, #e8e4c9, #d4cfb4)',
@@ -85,7 +115,7 @@ const presets: Record<string, any> = {
 // Main tool: Create particle presentation
 server.tool(
   'create_particles',
-  'Create a beautiful, soothing particle animation. Try: starry night, ocean waves, fireflies, cherry blossoms, snow, aurora, rain, bubbles, galaxy, or zen garden.',
+  'Create a beautiful, soothing particle animation. Try: starry night, ocean waves, fireflies, cherry blossoms, snow, aurora, rain, bubbles, galaxy, spiral, ring, heart, wave, mandala, or zen garden.',
   {
     prompt: z.string().describe('Describe the particle scene (e.g., "starry night sky", "gentle snowfall")'),
     mood: z.enum(['calm', 'dreamy', 'energetic', 'peaceful', 'mystical']).optional().describe('The mood of the animation'),
@@ -98,7 +128,7 @@ server.tool(
     
     if (promptLower.includes('star') || promptLower.includes('night sky')) {
       config = { ...presets.starryNight };
-    } else if (promptLower.includes('ocean') || promptLower.includes('sea') || promptLower.includes('wave')) {
+    } else if (promptLower.includes('ocean') || promptLower.includes('sea')) {
       config = { ...presets.ocean };
     } else if (promptLower.includes('firefl') || promptLower.includes('glow')) {
       config = { ...presets.fireflies };
@@ -114,6 +144,16 @@ server.tool(
       config = { ...presets.bubbles };
     } else if (promptLower.includes('galaxy') || promptLower.includes('space') || promptLower.includes('cosmos')) {
       config = { ...presets.galaxy };
+    } else if (promptLower.includes('spiral')) {
+      config = { ...presets.spiral };
+    } else if (promptLower.includes('ring') || promptLower.includes('halo')) {
+      config = { ...presets.ring };
+    } else if (promptLower.includes('heart')) {
+      config = { ...presets.heart };
+    } else if (promptLower.includes('wave')) {
+      config = { ...presets.wave };
+    } else if (promptLower.includes('mandala') || promptLower.includes('rose') || promptLower.includes('flower')) {
+      config = { ...presets.mandala };
     } else if (promptLower.includes('zen') || promptLower.includes('sand') || promptLower.includes('garden')) {
       config = { ...presets.zen };
     } else {
@@ -183,7 +223,7 @@ server.tool(
   'quick_preset',
   'Instantly show a preset particle animation',
   {
-    preset: z.enum(['starryNight', 'ocean', 'fireflies', 'sakura', 'snow', 'aurora', 'rain', 'bubbles', 'galaxy', 'zen']).describe('Preset name'),
+    preset: z.enum(['starryNight', 'ocean', 'fireflies', 'sakura', 'snow', 'aurora', 'rain', 'bubbles', 'galaxy', 'spiral', 'ring', 'heart', 'wave', 'mandala', 'zen']).describe('Preset name'),
   },
   async ({ preset }) => {
     const config = presets[preset] || presets.starryNight;
