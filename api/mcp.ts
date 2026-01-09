@@ -1,7 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const BASE_URL = 'https://particel-io-vdbc.vercel.app';
-
 const presets: Record<string, any> = {
   starryNight: { name: 'Starry Night', background: 'linear-gradient(to bottom, #0f0c29, #302b63, #24243e)', particles: { count: 200, color: '#ffffff', size: [1, 3], speed: 0.3, type: 'star', twinkle: true } },
   ocean: { name: 'Calm Ocean', background: 'linear-gradient(to bottom, #1a3a52, #2d5a7b, #1e4d6b)', particles: { count: 80, color: '#87ceeb', size: [2, 6], speed: 0.8, type: 'wave' } },
@@ -18,15 +16,12 @@ const presets: Record<string, any> = {
 
 const WIDGET_URI = 'ui://widget/particles.html';
 
-// Tools with _meta["openai/outputTemplate"] pointing to the resource
 const tools = [
   { 
     name: 'create_particles', 
     description: 'Create a soothing particle animation. Try: starry night, ocean, fireflies, cherry blossoms, snow, aurora, rain, bubbles, galaxy, fire, zen',
     inputSchema: { type: 'object', properties: { prompt: { type: 'string', description: 'Describe the particle scene' } }, required: ['prompt'] },
-    _meta: {
-      'openai/outputTemplate': WIDGET_URI
-    }
+    _meta: { 'openai/outputTemplate': WIDGET_URI }
   },
   { 
     name: 'list_presets', 
@@ -37,9 +32,7 @@ const tools = [
     name: 'quick_preset', 
     description: 'Show a preset particle animation',
     inputSchema: { type: 'object', properties: { preset: { type: 'string', enum: Object.keys(presets) } }, required: ['preset'] },
-    _meta: {
-      'openai/outputTemplate': WIDGET_URI
-    }
+    _meta: { 'openai/outputTemplate': WIDGET_URI }
   },
 ];
 
@@ -59,7 +52,6 @@ function matchPreset(prompt: string): any {
   return { ...presets.starryNight };
 }
 
-// Widget HTML served as resource - fixed 400px height box
 const widgetHtml = `<!DOCTYPE html>
 <html>
 <head>
@@ -87,55 +79,44 @@ const widgetHtml = `<!DOCTYPE html>
     let cfg = null;
 
     function resize() {
-      const container = document.querySelector('.container');
-      const W = container.clientWidth;
-      const H = 400;
+      const W = document.querySelector('.container').clientWidth || 600;
       canvas.width = W * devicePixelRatio;
-      canvas.height = H * devicePixelRatio;
+      canvas.height = 400 * devicePixelRatio;
       canvas.style.width = W + 'px';
-      canvas.style.height = H + 'px';
+      canvas.style.height = '400px';
       ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
     }
     window.addEventListener("resize", resize);
     resize();
 
     function initParticles() {
-      const container = document.querySelector('.container');
-      const W = container.clientWidth;
+      const W = document.querySelector('.container').clientWidth || 600;
       const H = 400;
-      const p = cfg?.config?.particles ?? {};
-      const count = p.count ?? 150;
-      const sizeRange = p.size ?? [2, 5];
-      const speed = p.speed ?? 1;
-      particles = Array.from({ length: count }, () => ({
-        x: Math.random() * W,
-        y: Math.random() * H,
-        r: sizeRange[0] + Math.random() * (sizeRange[1] - sizeRange[0]),
-        vy: speed * (0.5 + Math.random()),
-        vx: (Math.random() - 0.5) * speed,
+      const p = cfg?.config?.particles || { count: 100, size: [2,4], speed: 1 };
+      particles = Array.from({ length: p.count || 100 }, () => ({
+        x: Math.random() * W, y: Math.random() * H,
+        r: (p.size?.[0] || 2) + Math.random() * ((p.size?.[1] || 4) - (p.size?.[0] || 2)),
+        vy: (p.speed || 1) * (0.5 + Math.random()),
+        vx: (Math.random() - 0.5) * (p.speed || 1),
         o: 0.3 + Math.random() * 0.7,
         ph: Math.random() * Math.PI * 2
       }));
     }
 
     function getColor(p) {
-      const color = cfg?.config?.particles?.color ?? '#ffffff';
-      if (color === 'rainbow') return \`hsl(\${(Date.now()/50 + p.ph*100) % 360}, 80%, 60%)\`;
-      if (color === 'multi') {
-        const cs = ['#ff6b6b','#4ecdc4','#45b7d1','#96ceb4','#ffeaa7'];
-        return cs[Math.floor(p.ph * cs.length) % cs.length];
-      }
+      const color = cfg?.config?.particles?.color || '#ffffff';
+      if (color === 'rainbow') return 'hsl(' + ((Date.now()/50 + p.ph*100) % 360) + ', 80%, 60%)';
+      if (color === 'multi') return ['#ff6b6b','#4ecdc4','#45b7d1','#96ceb4','#ffeaa7'][Math.floor(p.ph * 5) % 5];
       return color;
     }
 
     function tick() {
       if (!cfg) return requestAnimationFrame(tick);
-      const container = document.querySelector('.container');
-      const W = container.clientWidth;
+      const W = document.querySelector('.container').clientWidth || 600;
       const H = 400;
       ctx.clearRect(0, 0, W, H);
-      const t = cfg?.config?.particles?.type ?? 'float';
-      const speed = cfg?.config?.particles?.speed ?? 1;
+      const t = cfg?.config?.particles?.type || 'float';
+      const speed = cfg?.config?.particles?.speed || 1;
 
       for (const p of particles) {
         if (t === 'star') { p.x += p.vx * 0.1; p.y += p.vy * 0.1; if (cfg?.config?.particles?.twinkle) p.o = 0.3 + Math.abs(Math.sin(Date.now()/1000 + p.ph)) * 0.7; }
@@ -150,13 +131,11 @@ const widgetHtml = `<!DOCTYPE html>
         else if (t === 'fire') { p.y -= speed * (0.5 + Math.random() * 0.5); p.x += Math.sin(Date.now()/500 + p.ph) * 0.5; p.o -= 0.01; if (p.o <= 0 || p.y < 0) { p.y = H; p.x = W/2 + (Math.random()-0.5)*100; p.o = 0.8; } }
         else { p.x += p.vx; p.y += p.vy; }
 
-        if (p.x < -10) p.x = W + 10;
-        if (p.x > W + 10) p.x = -10;
+        if (p.x < -10) p.x = W + 10; if (p.x > W + 10) p.x = -10;
         if (!['snow','rain','bubble','petal','fire'].includes(t)) { if (p.y < -10) p.y = H + 10; if (p.y > H + 10) p.y = -10; }
 
         ctx.globalAlpha = p.o;
         const color = getColor(p);
-
         if (t === 'rain') { ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, p.y + p.r * 3); ctx.strokeStyle = color; ctx.stroke(); }
         else if (t === 'bubble') { ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.strokeStyle = color; ctx.stroke(); }
         else if (['glow','aurora','fire'].includes(t)) { const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 3); g.addColorStop(0, color); g.addColorStop(1, 'transparent'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 3, 0, Math.PI * 2); ctx.fill(); }
@@ -168,11 +147,9 @@ const widgetHtml = `<!DOCTYPE html>
     function render() {
       cfg = window.openai?.toolOutput;
       if (!cfg) { document.getElementById("title").textContent = "Waiting..."; return; }
-      const bg = cfg?.config?.background;
-      if (bg) document.body.style.background = bg;
-      document.getElementById("title").textContent = cfg?.config?.name ?? "Particles";
-      const p = cfg?.config?.particles ?? {};
-      document.getElementById("info").textContent = p.count + " particles • " + (p.type ?? 'float');
+      document.body.style.background = cfg?.config?.background || '#1a1a2e';
+      document.getElementById("title").textContent = cfg?.config?.name || "Particles";
+      document.getElementById("info").textContent = (cfg?.config?.particles?.count || 100) + " particles";
       initParticles();
     }
 
@@ -182,132 +159,15 @@ const widgetHtml = `<!DOCTYPE html>
 </body>
 </html>`;
 
-function generateWidgetHtml(cfg: any): string {
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 400px; overflow: hidden; }
-    body { font-family: system-ui, sans-serif; background: ${cfg.background}; border-radius: 12px; }
-    .container { width: 100%; height: 400px; position: relative; border-radius: 12px; overflow: hidden; }
-    #hud { position: absolute; top: 12px; left: 12px; background: rgba(0,0,0,0.4); color: white; padding: 10px 14px; border-radius: 10px; backdrop-filter: blur(6px); z-index: 10; }
-    #hud .title { font-size: 18px; font-weight: 700; }
-    #hud .info { opacity: 0.85; font-size: 12px; margin-top: 4px; }
-    canvas { display: block; width: 100%; height: 100%; border-radius: 12px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <canvas id="c"></canvas>
-    <div id="hud"><div class="title">${cfg.name}</div><div class="info">${cfg.particles.count} particles • ${cfg.particles.type}</div></div>
-  </div>
-  <script>
-    const cfg = ${JSON.stringify(cfg)};
-    const canvas = document.getElementById("c");
-    const ctx = canvas.getContext("2d");
-    let particles = [];
-
-    function resize() {
-      const container = document.querySelector('.container');
-      const W = container.clientWidth || 600;
-      const H = 400;
-      canvas.width = W * devicePixelRatio;
-      canvas.height = H * devicePixelRatio;
-      canvas.style.width = W + 'px';
-      canvas.style.height = H + 'px';
-      ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-    }
-    window.addEventListener("resize", resize);
-    resize();
-
-    function initParticles() {
-      const container = document.querySelector('.container');
-      const W = container.clientWidth || 600;
-      const H = 400;
-      const p = cfg.particles;
-      particles = Array.from({ length: p.count }, () => ({
-        x: Math.random() * W,
-        y: Math.random() * H,
-        r: p.size[0] + Math.random() * (p.size[1] - p.size[0]),
-        vy: p.speed * (0.5 + Math.random()),
-        vx: (Math.random() - 0.5) * p.speed,
-        o: 0.3 + Math.random() * 0.7,
-        ph: Math.random() * Math.PI * 2
-      }));
-    }
-    initParticles();
-
-    function getColor(p) {
-      const color = cfg.particles.color;
-      if (color === 'rainbow') return 'hsl(' + ((Date.now()/50 + p.ph*100) % 360) + ', 80%, 60%)';
-      if (color === 'multi') {
-        const cs = ['#ff6b6b','#4ecdc4','#45b7d1','#96ceb4','#ffeaa7'];
-        return cs[Math.floor(p.ph * cs.length) % cs.length];
-      }
-      return color;
-    }
-
-    function tick() {
-      const container = document.querySelector('.container');
-      const W = container.clientWidth || 600;
-      const H = 400;
-      ctx.clearRect(0, 0, W, H);
-      const t = cfg.particles.type;
-      const speed = cfg.particles.speed;
-
-      for (const p of particles) {
-        if (t === 'star') { p.x += p.vx * 0.1; p.y += p.vy * 0.1; if (cfg.particles.twinkle) p.o = 0.3 + Math.abs(Math.sin(Date.now()/1000 + p.ph)) * 0.7; }
-        else if (t === 'snow') { p.x += Math.sin(Date.now()/2000 + p.ph) * 0.5; p.y += speed * 0.5; if (p.y > H) { p.y = -10; p.x = Math.random() * W; } }
-        else if (t === 'rain') { p.y += speed; if (p.y > H) { p.y = -10; p.x = Math.random() * W; } }
-        else if (t === 'bubble') { p.x += Math.sin(Date.now()/1500 + p.ph) * 0.5; p.y -= speed * 0.3; if (p.y < -10) { p.y = H + 10; p.x = Math.random() * W; } }
-        else if (t === 'petal') { p.x += Math.sin(Date.now()/1000 + p.ph); p.y += speed; if (p.y > H) { p.y = -10; p.x = Math.random() * W; } }
-        else if (t === 'glow') { p.x += Math.sin(Date.now()/2000 + p.ph) * 0.5; p.y += Math.cos(Date.now()/2000 + p.ph) * 0.5; if (cfg.particles.pulse) p.o = 0.2 + Math.abs(Math.sin(Date.now()/500 + p.ph)) * 0.8; }
-        else if (t === 'wave') { p.x += speed; p.y += Math.sin(Date.now()/1000 + p.ph) * 0.5; if (p.x > W) p.x = -10; }
-        else if (t === 'aurora') { p.x += Math.sin(Date.now()/3000 + p.ph) * 2; p.y += Math.cos(Date.now()/4000 + p.ph) * 0.5; p.o = 0.3 + Math.abs(Math.sin(Date.now()/2000 + p.ph)) * 0.5; }
-        else if (t === 'galaxy') { const cx = W/2, cy = H/2, a = Math.atan2(p.y-cy, p.x-cx) + speed * 0.01, d = Math.sqrt((p.x-cx)**2 + (p.y-cy)**2); p.x = cx + Math.cos(a) * d; p.y = cy + Math.sin(a) * d; }
-        else if (t === 'fire') { p.y -= speed * (0.5 + Math.random() * 0.5); p.x += Math.sin(Date.now()/500 + p.ph) * 0.5; p.o -= 0.01; if (p.o <= 0 || p.y < 0) { p.y = H; p.x = W/2 + (Math.random()-0.5)*100; p.o = 0.8; } }
-        else { p.x += p.vx; p.y += p.vy; }
-
-        if (p.x < -10) p.x = W + 10;
-        if (p.x > W + 10) p.x = -10;
-        if (!['snow','rain','bubble','petal','fire'].includes(t)) { if (p.y < -10) p.y = H + 10; if (p.y > H + 10) p.y = -10; }
-
-        ctx.globalAlpha = p.o;
-        const color = getColor(p);
-
-        if (t === 'rain') { ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, p.y + p.r * 3); ctx.strokeStyle = color; ctx.stroke(); }
-        else if (t === 'bubble') { ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.strokeStyle = color; ctx.stroke(); }
-        else if (['glow','aurora','fire'].includes(t)) { const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 3); g.addColorStop(0, color); g.addColorStop(1, 'transparent'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 3, 0, Math.PI * 2); ctx.fill(); }
-        else { ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fillStyle = color; if (t === 'star') { ctx.shadowColor = color; ctx.shadowBlur = p.r * 2; } ctx.fill(); ctx.shadowBlur = 0; }
-      }
-      requestAnimationFrame(tick);
-    }
-    tick();
-  </script>
-</body>
-</html>`;
-}
-
+// Tool handlers - return ONLY structuredContent for UI tools
 function handleTool(name: string, args: any): any {
   if (name === 'create_particles') {
     const cfg = matchPreset(args.prompt || '');
-    const html = generateWidgetHtml(cfg);
+    // Return ONLY structuredContent - this is what ChatGPT expects for UI
     return {
-      content: [
-        { type: 'text', text: `✨ ${cfg.name}` },
-        { 
-          type: 'resource',
-          resource: {
-            uri: WIDGET_URI,
-            mimeType: 'text/html+skybridge',
-            text: html
-          }
-        }
-      ],
-      structuredContent: { config: cfg },
-      _meta: { 'openai/outputTemplate': WIDGET_URI }
+      structuredContent: {
+        config: cfg
+      }
     };
   }
   
@@ -320,21 +180,11 @@ function handleTool(name: string, args: any): any {
   
   if (name === 'quick_preset') {
     const cfg = presets[args.preset] || presets.starryNight;
-    const html = generateWidgetHtml(cfg);
+    // Return ONLY structuredContent - this is what ChatGPT expects for UI
     return {
-      content: [
-        { type: 'text', text: `✨ ${cfg.name}` },
-        {
-          type: 'resource',
-          resource: {
-            uri: WIDGET_URI,
-            mimeType: 'text/html+skybridge',
-            text: html
-          }
-        }
-      ],
-      structuredContent: { config: cfg },
-      _meta: { 'openai/outputTemplate': WIDGET_URI }
+      structuredContent: {
+        config: cfg
+      }
     };
   }
   
@@ -370,7 +220,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.json({ jsonrpc: '2.0', id, result: handleTool(params.name, params.arguments || {}) });
   }
   
-  // Resource list - ChatGPT fetches this to find the widget
   if (method === 'resources/list') {
     return res.json({ 
       jsonrpc: '2.0', id, 
@@ -382,10 +231,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           _meta: {
             'openai/widgetDescription': 'Soothing particle animation',
             'openai/widgetDomain': 'particel-io-vdbc.vercel.app',
-            'openai/widgetCSP': {
-              connect_domains: [],
-              resource_domains: []
-            },
+            'openai/widgetCSP': { connect_domains: [], resource_domains: [] },
             'openai/widgetPrefersBorder': true
           }
         }]
@@ -393,7 +239,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
   
-  // Resource read - ChatGPT fetches the actual HTML
   if (method === 'resources/read') {
     return res.json({ 
       jsonrpc: '2.0', id, 
@@ -405,10 +250,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           _meta: {
             'openai/widgetDescription': 'Soothing particle animation',
             'openai/widgetDomain': 'particel-io-vdbc.vercel.app',
-            'openai/widgetCSP': {
-              connect_domains: [],
-              resource_domains: []
-            },
+            'openai/widgetCSP': { connect_domains: [], resource_domains: [] },
             'openai/widgetPrefersBorder': true
           }
         }]
